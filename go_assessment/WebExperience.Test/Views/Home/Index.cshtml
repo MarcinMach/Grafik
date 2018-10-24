@@ -1,0 +1,296 @@
+﻿
+<div id="WebTestModel" style="min-width:1000px; height:100%" >
+    <div class="widget-body">
+        <div class="table-responsive" style=" min-height: 0.01%; overflow-x: auto;">
+            <input type="button" class="btn" value="Download" data-toggle="modal" data-target="#download-dialog" style="float: right; margin-top:30px">
+            <table class="table table-striped table-bordered table-advance table-hover" style="margin-top:80px">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>CreatedBy</th>
+                        <th>&nbsp;</th>
+                    </tr>
+                </thead>
+                <tbody data-bind="foreach: pageResult, visible: pageResult().length > 0 ">
+                    <tr>
+                        <td data-bind="text: Id"></td>
+                        <td data-bind="text: CreatedBy"></td>
+                        <td class=" cell nowrap ellipsis">
+                            <button data-toggle="modal" class="icon-edit" title="Edit" data-bind="click: $root.edit"></button>
+                            <button class="icon-remove" title="Delete" data-bind="click: $root.delete"></button>
+                        </td>
+
+                    </tr>
+                </tbody>
+                <tbody data-bind="visible: pageResult().length == 0">
+                    <tr>
+                        <td> Brak wyników</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div data-bind="template: { name: 'tpl-pager', data: pager }, visible: pageResult().length > 0"></div>
+        </div>
+    </div>
+    @Html.Partial("EditPopup")
+    @Html.Partial("DownloadPopup")
+</div>
+
+
+
+
+
+
+<script type="text/html" id="tpl-pager">
+    <hr />
+    <div class="row-fluid">
+        <div class="span6 pt10">
+            Od <span data-bind="text: FirstItemIndex"></span>
+            do <span data-bind="text: LastItemIndex"></span>
+            z <strong><span data-bind="text: TotalItemCount"></span></strong> wyników
+        </div>
+        <div class="span6">
+            <div class="pagination pull-right m5" style="margin:0px">
+                <ul>
+                    <!-- ko if:CurrentPage() === 1 -->
+                    <li class="F">
+                        <a href="#" class="disabledPage">&laquo;&laquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko ifnot:CurrentPage() === 1 -->
+                    <li>
+                        <a href="#" data-bind="click: function () { CurrentPage(1); }">&laquo;&laquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko if:HasPrevPage -->
+                    <li>
+                        <a href="#" data-bind="click: function () { CurrentPage(CurrentPage() - 1); }">&laquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko ifnot:HasPrevPage -->
+                    <li class="disabled">
+                        <a href="#" class="disabledPage">&laquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko foreach:Pages -->
+                    <!-- ko if:$data === $parent.CurrentPage() -->
+                    <li class="active">
+                        <span class="currentPage" data-bind="text: $data"></span>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko if:$data !== $parent.CurrentPage() -->
+                    <li>
+                        <a href="#" data-bind="text: $data, click: function () { $parent.CurrentPage($data); }"></a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- /ko -->
+                    <!-- ko if:HasNextPage -->
+                    <li>
+                        <a href="#" data-bind="click: function () { CurrentPage(CurrentPage() + 1); }">&raquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko ifnot:HasNextPage -->
+                    <li class="disabled">
+                        <a href="#" class="disabledPage">&raquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko ifnot:CurrentPage() === LastPage() -->
+                    <li>
+                        <a href="#" data-bind="click: function () { CurrentPage(LastPage()); }">&raquo;&raquo;</a>
+                    </li>
+                    <!-- /ko -->
+                    <!-- ko if:CurrentPage() === LastPage() -->
+                    <li class="disabled">
+                        <a href="#" class="disabledPage">&raquo;&raquo;</a>
+                    </li>
+                    <!-- /ko -->
+                </ul>
+            </div>
+        </div>
+    </div>
+    <!-- /ko -->
+</script>
+
+<script type="text/javascript">
+
+    var model = new viewModel();
+
+    function viewModel() {
+        var self = this;
+        self.totalPages = ko.observable(-1);
+        self.pageResult = ko.observableArray([])
+        self.test = ko.observable();
+        self.pager = ko.pager(self.totalPages);
+        self.pager().CurrentPage.subscribe(function (data) {
+            self.init('true');
+        });
+        self.pager().PageSize(10);
+
+
+        self.init = function () {
+            $('#main').wait();
+            $.ajax({
+                url: "@Url.Action("GetList", "home")",
+                type: 'POST',
+                dataType: 'json',
+                contentType: "application/json",
+                data: ko.toJSON(
+                    {
+                        page: self.pager().CurrentPage(),
+                        size: self.pager().PageSize()
+                    }),
+                success: function (result) {
+                    console.log(result.Results)
+                    self.pageResult(result.Results)
+                    self.totalPages(result.RowCount)
+                    console.log(self.pageResult())
+                    $('#main').unwait();
+
+
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    console.log(xhr);
+                    console.log(thrownError);
+                }
+            })
+        }
+        self.init();
+
+
+        self.edit = function (e, source) {
+            $.ajax({
+                url: "@Url.Action("Edit", "home")",
+                type: 'POST',
+                dataType: 'json',
+                contentType: "application/json",
+                data: ko.toJSON(
+                    {
+                        Id: e.Id
+                    }),
+                success: function (result) {
+                    $('#edit-details-wrapper').html(result);
+                    console.log(result)
+                    //handleDialogs();
+                    self.test(new arrayModel(result));
+                    $('#edit-dialog').modal("show", model);
+
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    console.log(xhr);
+                    console.log(thrownError);
+                }
+            })
+        }
+
+        self.delete = function (e, source) {
+            $.ajax({
+                url: "@Url.Action("Delete", "home")",
+                type: 'POST',
+                dataType: 'json',
+                contentType: "application/json",
+                data: ko.toJSON(
+                    {
+                        Id: e.Id
+                    }),
+                success: function (result) {
+                    if (result == true) {
+                        alert("Operation succeed")
+                    }
+                    else {
+                        alert("Something went wrong...");
+                    }
+
+                    self.init();
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    console.log(xhr);
+                    console.log(thrownError);
+                }
+            })
+        }
+
+        self.save = function (e, source) {
+            var id = e.id();
+             $.ajax({
+                url: "@Url.Action("Update", "home")",
+                type: 'POST',
+                dataType: 'json',
+                contentType: "application/json",
+                data: ko.toJSON(
+                    {
+                        id: e.id(),
+                        fileName:  e.fileName(),
+                        createdBy:  e.createdBy(),
+                        mimeType:  e.mimeType(),
+                        country: e.country(),
+                        description:  e.description(),
+                        email:  e.email()
+
+                    }),
+                 success: function (result) {
+                
+                    if (result == true) {
+                        alert("Operation succeed")
+                    }
+                    else {
+                        alert("Something went wrong...");
+                     }
+
+                     self.init();
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    console.log(xhr);
+                    console.log(thrownError);
+                }
+            })
+        }
+
+        self.download = function () {
+            $('#main').wait();
+             $.ajax({
+                url: "@Url.Action("Dwonload", "home")",
+                type: 'POST',
+                dataType: 'json',
+                contentType: "application/json",
+                success: function (result) {
+                    alert(result)
+                    $('#main').unwait();
+
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    console.log(xhr);
+                    console.log(thrownError);
+                    $('#main').unwait();
+                 }
+
+            })
+            $('#main').unwait();
+        
+        }
+    }
+
+    $(document).ready(function () {
+        ko.applyBindings(model, document.getElementById("WebTestModel"));
+    })
+
+
+
+
+
+    function arrayModel(item) {
+        console.log(item.Id)
+        console.log(item.FileName)
+        var self = this;
+        self.id = ko.observable(item.Id);
+        self.fileName = ko.observable(item.FileName);
+        self.createdBy = ko.observable(item.CreatedBy);
+        self.mimeType = ko.observable(item.MimeType);
+        self.country = ko.observable(item.Country);
+        self.description = ko.observable(item.Description);
+        self.email = ko.observable(item.Email);
+
+    }
+
+
+
+
+</script>
